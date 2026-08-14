@@ -13,7 +13,7 @@ import java.time.Instant
 @ConfigurationProperties("quiz")
 data class QuizProperties(
     val questionsPerSession: Int = 10,
-    val multipleChoiceOptions: Int = 4,
+    val multipleChoiceOptions: Int = 3,
 )
 
 @Service
