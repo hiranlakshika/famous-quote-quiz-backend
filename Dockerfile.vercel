@@ -1,0 +1,31 @@
+# ---------- Build stage ----------
+FROM eclipse-temurin:17-jdk AS build
+WORKDIR /app
+COPY gradlew settings.gradle.kts build.gradle.kts ./
+COPY gradle ./gradle
+COPY src ./src
+RUN ./gradlew --no-daemon clean bootJar -x test \
+    && JAR="$(find build/libs -name '*.jar' ! -name '*-plain.jar' | head -1)" \
+    && test -n "$JAR" \
+    && cp "$JAR" /app/app.jar \
+    && ls -l /app/app.jar
+
+# ---------- Runtime stage ----------
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+COPY --from=build /app/app.jar app.jar
+
+# Demo deployment: the container filesystem is neither writable at /app nor kept
+# between cold starts, so run H2 in memory. DataSeeder repopulates the quotes and
+# the demo user on every startup.
+ENV SPRING_DATASOURCE_URL="jdbc:h2:mem:quizdb;DB_CLOSE_DELAY=-1"
+
+# The platform gives the container ~10s to start listening. Lazy bean creation
+# trades a slower first request for a much faster boot.
+ENV SPRING_MAIN_LAZY_INITIALIZATION=true
+
+# Vercel targets port 80 unless PORT is set in the project settings. Running as
+# root keeps port 80 bindable, so this works whether or not PORT is configured.
+ENTRYPOINT ["sh", "-c", "exec /opt/java/openjdk/bin/java -XX:MaxRAMPercentage=75 -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Dserver.port=${PORT:-80} -jar /app/app.jar"]
