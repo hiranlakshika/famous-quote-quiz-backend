@@ -14,28 +14,6 @@ import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import java.time.Instant
 
-data class LoginRequest(
-    @field:NotBlank(message = "Email is required")
-    @field:Email(message = "Enter a valid email")
-    val email: String,
-
-    @field:NotBlank(message = "Password is required")
-    val password: String,
-)
-
-data class RefreshRequest(
-    @field:NotBlank(message = "Refresh token is required")
-    val refreshToken: String,
-)
-
-data class AuthResponse(
-    val token: String,
-    val expiresAt: Instant,
-    val refreshToken: String,
-    val refreshTokenExpiresAt: Instant,
-    val user: UserResponse,
-)
-
 @RestController
 @RequestMapping("/api/auth")
 @Tag(name = "Authentication")

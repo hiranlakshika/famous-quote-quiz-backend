@@ -30,8 +30,3 @@ class RefreshToken(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
 )
-
-interface RefreshTokenRepository : JpaRepository<RefreshToken, Long> {
-    fun findByValue(value: String): RefreshToken?
-    fun deleteByValue(value: String)
-}

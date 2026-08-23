@@ -6,11 +6,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 
-data class ErrorResponse(
-    val status: Int,
-    val message: String,
-    val fieldErrors: Map<String, String> = emptyMap(),
-)
 
 @RestControllerAdvice
 class GlobalExceptionHandler {

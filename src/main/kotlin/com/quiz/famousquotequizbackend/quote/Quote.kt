@@ -21,7 +21,3 @@ class Quote(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     var id: Long? = null,
 )
-
-interface QuoteRepository : JpaRepository<Quote, Long> {
-    fun existsByText(text: String): Boolean
-}

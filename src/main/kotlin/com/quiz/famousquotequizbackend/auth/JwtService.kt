@@ -11,19 +11,6 @@ import org.springframework.stereotype.Component
 import java.time.Duration
 import java.time.Instant
 
-@ConfigurationProperties("auth")
-data class AuthProperties(
-    /** HMAC key used to sign the JWTs, at least 32 characters long. */
-    val secret: String,
-    val tokenTtl: Duration = Duration.ofMinutes(15),
-    val refreshTokenTtl: Duration = Duration.ofDays(30),
-)
-
-data class IssuedToken(
-    val value: String,
-    val expiresAt: Instant,
-)
-
 @Component
 class JwtService(
     private val authProperties: AuthProperties,

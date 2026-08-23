@@ -5,16 +5,9 @@ import com.quiz.famousquotequizbackend.common.NotFoundException
 import com.quiz.famousquotequizbackend.quote.Quote
 import com.quiz.famousquotequizbackend.quote.QuoteRepository
 import com.quiz.famousquotequizbackend.user.User
-import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
-
-@ConfigurationProperties("quiz")
-data class QuizProperties(
-    val questionsPerSession: Int = 10,
-    val multipleChoiceOptions: Int = 3,
-)
 
 @Service
 @Transactional
