@@ -1,8 +1,7 @@
 # Famous Quote Quiz — Backend
 
-Spring Boot (Kotlin) REST API for the Famous Quote Quiz client. It serves quotes and their authors, handles
-login/authentication, exposes the user profile and drives the quiz logic (question selection, answer options and
-answer validation) for both quiz modes.
+Spring Boot (Kotlin) REST API for the Famous Quote Quiz client. It handles login/authentication and drives the quiz
+logic (question selection, answer options and answer validation) for both quiz modes.
 
 ## Tech stack
 
@@ -166,20 +165,41 @@ messages to the matching input field (e.g. on the login screen).
 | `401` | Missing, malformed or expired access token; unknown, rotated, revoked or expired refresh token; wrong login credentials |
 | `404` | Quiz session does not exist or belongs to another user |
 
-## Project structure
+## Architecture
 
-Feature based packages. Entities keep their repository and response mapping in the same file, and request/response
-DTOs live next to the controller that uses them:
+Hexagonal (ports and adapters). Use cases live in the application layer and talk to storage through outbound ports;
+HTTP and JPA sit at the edges as adapters.
+
+A request such as `POST /api/quiz/sessions` goes REST controller → application service → domain → repository port →
+Spring Data adapter → H2.
 
 ```
 src/main/kotlin/com/quiz/famousquotequizbackend
-├── auth     AuthController (+ DTOs), AuthService, JwtService (+ AuthProperties),
-│            RefreshToken (entity and repository), CurrentUser (annotation and its argument resolver)
-├── user     User (entity, repository, UserResponse), UserController
-├── quote    Quote (entity, repository, QuoteResponse), QuoteController
-├── quiz     QuizSession (session/question entities, modes, repository), QuizService (+ QuizProperties),
-│            QuizController (+ DTOs)
-├── common   ApiException hierarchy, GlobalExceptionHandler (+ ErrorResponse)
-└── config   SecurityConfig (filter chain, JWT encoder/decoder, CORS, password encoder, 401 body),
-             WebConfig (argument resolver), OpenApiConfig, DataSeeder
+├── domain                 JPA entities and quiz rules
+│   ├── auth               RefreshToken
+│   ├── quiz               QuizSession, QuizQuestion, QuizMode, BinaryAnswer
+│   ├── quote              Quote
+│   └── user               User
+├── application            use cases; no Spring Data or HTTP
+│   ├── port/driven        repository interfaces (User, Quote, QuizSession, RefreshToken)
+│   ├── service            AuthService, QuizService, JwtService
+│   └── dto                response DTOs (AuthResponse, SessionResponse, QuestionResponse, …)
+├── adapter
+│   ├── driving/rest       AuthController, QuizController, request DTOs, @CurrentUser
+│   └── driven/persistence Spring Data JpaRepository types + adapters that implement the ports
+└── infrastructure
+    ├── common             ApiException hierarchy, GlobalExceptionHandler, ErrorResponse
+    └── config             SecurityConfig, WebConfig, OpenApiConfig, DataSeeder, Auth/Quiz properties
 ```
+
+- **Domain** owns `User`, `Quote`, `QuizSession` and related types. Sessions know how to pick the current question and
+  count answers. These classes are also JPA `@Entity` mappings.
+- **Application** runs the use cases. `AuthService` handles login, refresh-token rotation and logout; `QuizService`
+  starts a session and scores answers. Both depend on the `port/driven` interfaces, not on Spring Data.
+- **Driving adapters** are the HTTP API. Incoming request bodies live next to the controllers; outgoing responses live
+  in `application/dto`. There are no inbound ports — controllers call the services directly.
+- **Driven adapters** implement the ports by wrapping Spring Data repositories.
+- **Infrastructure** is Spring wiring: JWT resource-server security, CORS, OpenAPI, H2, seeding, and the shared error
+  JSON shape.
+
+Integration tests under `src/test/.../auth` and `src/test/.../quiz` cover the HTTP flows end to end.

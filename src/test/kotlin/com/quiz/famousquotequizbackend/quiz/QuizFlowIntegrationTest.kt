@@ -1,7 +1,8 @@
 package com.quiz.famousquotequizbackend.quiz
 
-import com.quiz.famousquotequizbackend.auth.AuthService
-import com.quiz.famousquotequizbackend.auth.LoginRequest
+import com.quiz.famousquotequizbackend.application.service.AuthService
+import com.quiz.famousquotequizbackend.application.dto.auth.LoginRequest
+import com.quiz.famousquotequizbackend.domain.quiz.QuizMode
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
