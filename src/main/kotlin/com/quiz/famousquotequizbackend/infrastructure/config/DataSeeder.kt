@@ -1,19 +1,19 @@
 package com.quiz.famousquotequizbackend.infrastructure.config
 
+import com.quiz.famousquotequizbackend.application.port.driven.PasswordHasher
 import com.quiz.famousquotequizbackend.application.port.driven.QuoteRepository
 import com.quiz.famousquotequizbackend.application.port.driven.UserRepository
 import com.quiz.famousquotequizbackend.domain.quote.Quote
 import com.quiz.famousquotequizbackend.domain.user.User
 import org.springframework.boot.ApplicationArguments
 import org.springframework.boot.ApplicationRunner
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Component
 
 @Component
 class DataSeeder(
     private val quoteRepository: QuoteRepository,
     private val userRepository: UserRepository,
-    private val passwordEncoder: PasswordEncoder,
+    private val passwordHasher: PasswordHasher,
 ) : ApplicationRunner {
 
     override fun run(args: ApplicationArguments) {
@@ -32,7 +32,7 @@ class DataSeeder(
         userRepository.save(
             User(
                 email = DEMO_EMAIL,
-                passwordHash = checkNotNull(passwordEncoder.encode(DEMO_PASSWORD)),
+                passwordHash = passwordHasher.encode(DEMO_PASSWORD),
                 displayName = "Demo User",
             )
         )

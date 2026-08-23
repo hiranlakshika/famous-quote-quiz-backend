@@ -1,15 +1,16 @@
 package com.quiz.famousquotequizbackend.application.service
 
 import com.quiz.famousquotequizbackend.application.dto.auth.AuthResponse
-import com.quiz.famousquotequizbackend.application.dto.auth.LoginRequest
 import com.quiz.famousquotequizbackend.application.dto.user.UserResponse
+import com.quiz.famousquotequizbackend.application.exception.UnauthorizedException
+import com.quiz.famousquotequizbackend.application.port.driven.AuthSettings
+import com.quiz.famousquotequizbackend.application.port.driven.PasswordHasher
 import com.quiz.famousquotequizbackend.application.port.driven.RefreshTokenRepository
+import com.quiz.famousquotequizbackend.application.port.driven.TokenIssuer
 import com.quiz.famousquotequizbackend.application.port.driven.UserRepository
+import com.quiz.famousquotequizbackend.application.port.driving.AuthUseCase
 import com.quiz.famousquotequizbackend.domain.auth.RefreshToken
 import com.quiz.famousquotequizbackend.domain.user.User
-import com.quiz.famousquotequizbackend.infrastructure.common.UnauthorizedException
-import com.quiz.famousquotequizbackend.infrastructure.config.AuthProperties
-import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.security.SecureRandom
@@ -21,24 +22,24 @@ import java.util.Base64
 class AuthService(
     private val userRepository: UserRepository,
     private val refreshTokenRepository: RefreshTokenRepository,
-    private val passwordEncoder: PasswordEncoder,
-    private val jwtService: JwtService,
-    private val authProperties: AuthProperties,
-) {
+    private val passwordHasher: PasswordHasher,
+    private val tokenIssuer: TokenIssuer,
+    private val authSettings: AuthSettings,
+) : AuthUseCase {
 
     private val random = SecureRandom()
 
-    fun login(request: LoginRequest): AuthResponse {
-        val user = userRepository.findByEmailIgnoreCase(request.email.trim())
+    override fun login(email: String, password: String): AuthResponse {
+        val user = userRepository.findByEmailIgnoreCase(email.trim())
             ?: throw UnauthorizedException("Invalid email or password")
-        if (!passwordEncoder.matches(request.password, user.passwordHash)) {
+        if (!passwordHasher.matches(password, user.passwordHash)) {
             throw UnauthorizedException("Invalid email or password")
         }
         return authResponseFor(user)
     }
 
     /** Exchanges a refresh token for a new access token, rotating the refresh token in the process. */
-    fun refresh(refreshToken: String): AuthResponse {
+    override fun refresh(refreshToken: String): AuthResponse {
         val stored = refreshTokenRepository.findByValue(refreshToken)
             ?: throw UnauthorizedException("Invalid refresh token")
         refreshTokenRepository.delete(stored)
@@ -48,22 +49,17 @@ class AuthService(
         return authResponseFor(stored.user)
     }
 
-    fun logout(refreshToken: String) {
+    override fun logout(refreshToken: String) {
         refreshTokenRepository.deleteByValue(refreshToken)
     }
 
-    @Transactional(readOnly = true)
-    fun userOf(subject: String?): User = subject?.toLongOrNull()
-        ?.let { userRepository.findById(it) }
-        ?: throw UnauthorizedException("Invalid or expired token")
-
     private fun authResponseFor(user: User): AuthResponse {
-        val accessToken = jwtService.issue(user)
+        val accessToken = tokenIssuer.issue(user)
         val refreshToken = refreshTokenRepository.save(
             RefreshToken(
                 value = newRefreshTokenValue(),
                 user = user,
-                expiresAt = Instant.now().plus(authProperties.refreshTokenTtl),
+                expiresAt = Instant.now().plus(authSettings.refreshTokenTtl),
             )
         )
         return AuthResponse(

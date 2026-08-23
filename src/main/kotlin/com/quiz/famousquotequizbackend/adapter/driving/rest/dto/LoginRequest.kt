@@ -1,4 +1,4 @@
-package com.quiz.famousquotequizbackend.application.dto.auth
+package com.quiz.famousquotequizbackend.adapter.driving.rest.dto
 
 import jakarta.validation.constraints.Email
 import jakarta.validation.constraints.NotBlank

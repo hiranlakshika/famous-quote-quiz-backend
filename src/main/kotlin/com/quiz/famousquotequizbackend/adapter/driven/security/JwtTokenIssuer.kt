@@ -1,5 +1,7 @@
-package com.quiz.famousquotequizbackend.application.service
+package com.quiz.famousquotequizbackend.adapter.driven.security
 
+import com.quiz.famousquotequizbackend.application.port.driven.IssuedToken
+import com.quiz.famousquotequizbackend.application.port.driven.TokenIssuer
 import com.quiz.famousquotequizbackend.domain.user.User
 import com.quiz.famousquotequizbackend.infrastructure.config.AuthProperties
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm
@@ -11,12 +13,12 @@ import org.springframework.stereotype.Component
 import java.time.Instant
 
 @Component
-class JwtService(
+class JwtTokenIssuer(
     private val authProperties: AuthProperties,
     private val jwtEncoder: JwtEncoder,
-) {
+) : TokenIssuer {
 
-    fun issue(user: User): IssuedToken {
+    override fun issue(user: User): IssuedToken {
         val issuedAt = Instant.now()
         val expiresAt = issuedAt.plus(authProperties.tokenTtl)
         val claims = JwtClaimsSet.builder()

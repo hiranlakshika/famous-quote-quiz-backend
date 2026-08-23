@@ -1,4 +1,4 @@
-package com.quiz.famousquotequizbackend.infrastructure.config
+package com.quiz.famousquotequizbackend.adapter.driving.rest.config
 
 import com.quiz.famousquotequizbackend.adapter.driving.rest.security.CurrentUserArgumentResolver
 import org.springframework.context.annotation.Configuration

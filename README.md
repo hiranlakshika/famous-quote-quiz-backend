@@ -49,8 +49,8 @@ Login and refresh return two tokens:
   `POST /api/auth/refresh` or `POST /api/auth/logout`
 
 Spring Security's resource server filter chain verifies the access token's signature and expiry and rejects anything
-else with a `401` in the same JSON shape as the other errors. Controllers receive the authenticated user through a
-`@CurrentUser` parameter, which loads the entity for the subject of the validated token.
+else with a `401` in the same JSON shape as the other errors. Controllers receive the user id through a `@CurrentUser`
+parameter, taken from the subject of the validated token.
 
 Recommended client behaviour: store both tokens, and when a call returns `401`, call `/api/auth/refresh` once, retry
 the original request with the new access token, and only fall back to the login screen if the refresh also fails.
@@ -167,11 +167,11 @@ messages to the matching input field (e.g. on the login screen).
 
 ## Architecture
 
-Hexagonal (ports and adapters). Use cases live in the application layer and talk to storage through outbound ports;
-HTTP and JPA sit at the edges as adapters.
+Hexagonal (ports and adapters). Use cases live in the application layer and talk to the outside world through ports;
+HTTP, JPA and JWT sit at the edges as adapters.
 
-A request such as `POST /api/quiz/sessions` goes REST controller → application service → domain → repository port →
-Spring Data adapter → H2.
+A request such as `POST /api/quiz/sessions` goes REST controller → inbound port → application service → domain →
+outbound port → adapter (Spring Data / JWT / password hashing) → H2.
 
 ```
 src/main/kotlin/com/quiz/famousquotequizbackend
@@ -180,26 +180,31 @@ src/main/kotlin/com/quiz/famousquotequizbackend
 │   ├── quiz               QuizSession, QuizQuestion, QuizMode, BinaryAnswer
 │   ├── quote              Quote
 │   └── user               User
-├── application            use cases; no Spring Data or HTTP
-│   ├── port/driven        repository interfaces (User, Quote, QuizSession, RefreshToken)
-│   ├── service            AuthService, QuizService, JwtService
+├── application            use cases; no HTTP, JPA or JWT
+│   ├── exception          ApiException hierarchy (plain status codes)
+│   ├── port/driving       AuthUseCase, QuizUseCase
+│   ├── port/driven        repositories, TokenIssuer, PasswordHasher, Auth/Quiz settings
+│   ├── service            AuthService, QuizService (implement the driving ports)
 │   └── dto                response DTOs (AuthResponse, SessionResponse, QuestionResponse, …)
 ├── adapter
-│   ├── driving/rest       AuthController, QuizController, request DTOs, @CurrentUser
-│   └── driven/persistence Spring Data JpaRepository types + adapters that implement the ports
+│   ├── driving/rest       AuthController, QuizController, request DTOs, @CurrentUser, OpenAPI/Web config
+│   └── driven             persistence adapters + Spring Data; JwtTokenIssuer; BCryptPasswordHasher
 └── infrastructure
-    ├── common             ApiException hierarchy, GlobalExceptionHandler, ErrorResponse
-    └── config             SecurityConfig, WebConfig, OpenApiConfig, DataSeeder, Auth/Quiz properties
+    ├── common             GlobalExceptionHandler, ErrorResponse
+    └── config             SecurityConfig, DataSeeder, AuthProperties, QuizProperties
 ```
 
 - **Domain** owns `User`, `Quote`, `QuizSession` and related types. Sessions know how to pick the current question and
-  count answers. These classes are also JPA `@Entity` mappings.
-- **Application** runs the use cases. `AuthService` handles login, refresh-token rotation and logout; `QuizService`
-  starts a session and scores answers. Both depend on the `port/driven` interfaces, not on Spring Data.
+  count answers. These classes are also JPA `@Entity` mappings — persistence-free domain models are not split out.
+- **Application** runs the use cases behind inbound ports. `AuthService` handles login, refresh-token rotation and
+  logout; `QuizService` starts a session and scores answers. Both depend on outbound ports, not on Spring Data, JWT or
+  HTTP types. Request bodies never enter this layer; controllers pass primitives and domain values in.
 - **Driving adapters** are the HTTP API. Incoming request bodies live next to the controllers; outgoing responses live
-  in `application/dto`. There are no inbound ports — controllers call the services directly.
-- **Driven adapters** implement the ports by wrapping Spring Data repositories.
-- **Infrastructure** is Spring wiring: JWT resource-server security, CORS, OpenAPI, H2, seeding, and the shared error
-  JSON shape.
+  in `application/dto`. Controllers call `AuthUseCase` / `QuizUseCase` and resolve `@CurrentUser` to the JWT subject
+  (user id), not a JPA entity.
+- **Driven adapters** implement the outbound ports: Spring Data wrappers for persistence, `JwtTokenIssuer` for access
+  tokens, `BCryptPasswordHasher` for passwords.
+- **Infrastructure** is Spring wiring that is not an adapter of a port: the security filter chain, CORS, seeding, and
+  `@ConfigurationProperties` classes that implement `AuthSettings` / `QuizSettings`.
 
-Integration tests under `src/test/.../auth` and `src/test/.../quiz` cover the HTTP flows end to end.
+Integration tests live next to the REST adapter under `src/test/.../adapter/driving/rest`.

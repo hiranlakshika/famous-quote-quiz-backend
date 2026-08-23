@@ -1,4 +1,4 @@
-package com.quiz.famousquotequizbackend.infrastructure.config
+package com.quiz.famousquotequizbackend.adapter.driving.rest.config
 
 import com.quiz.famousquotequizbackend.adapter.driving.rest.security.CurrentUser
 import io.swagger.v3.oas.models.Components
@@ -23,7 +23,7 @@ class OpenApiConfig {
             Info()
                 .title("Famous Quote Quiz API")
                 .version("1.0")
-                .description("Quotes, authentication, profile and quiz logic for the Famous Quote Quiz client.")
+                .description("Authentication and quiz logic for the Famous Quote Quiz client.")
         )
         .components(
             Components().addSecuritySchemes(

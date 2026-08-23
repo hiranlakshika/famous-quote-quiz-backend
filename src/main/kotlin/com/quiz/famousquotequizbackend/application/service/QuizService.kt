@@ -3,17 +3,19 @@ package com.quiz.famousquotequizbackend.application.service
 import com.quiz.famousquotequizbackend.application.dto.quiz.AnswerResponse
 import com.quiz.famousquotequizbackend.application.dto.quiz.QuestionResponse
 import com.quiz.famousquotequizbackend.application.dto.quiz.SessionResponse
+import com.quiz.famousquotequizbackend.application.exception.BadRequestException
+import com.quiz.famousquotequizbackend.application.exception.NotFoundException
+import com.quiz.famousquotequizbackend.application.exception.UnauthorizedException
 import com.quiz.famousquotequizbackend.application.port.driven.QuizSessionRepository
+import com.quiz.famousquotequizbackend.application.port.driven.QuizSettings
 import com.quiz.famousquotequizbackend.application.port.driven.QuoteRepository
+import com.quiz.famousquotequizbackend.application.port.driven.UserRepository
+import com.quiz.famousquotequizbackend.application.port.driving.QuizUseCase
 import com.quiz.famousquotequizbackend.domain.quiz.BinaryAnswer
 import com.quiz.famousquotequizbackend.domain.quiz.QuizMode
 import com.quiz.famousquotequizbackend.domain.quiz.QuizQuestion
 import com.quiz.famousquotequizbackend.domain.quiz.QuizSession
 import com.quiz.famousquotequizbackend.domain.quote.Quote
-import com.quiz.famousquotequizbackend.domain.user.User
-import com.quiz.famousquotequizbackend.infrastructure.common.BadRequestException
-import com.quiz.famousquotequizbackend.infrastructure.common.NotFoundException
-import com.quiz.famousquotequizbackend.infrastructure.config.QuizProperties
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
@@ -23,25 +25,28 @@ import java.time.Instant
 class QuizService(
     private val quoteRepository: QuoteRepository,
     private val quizSessionRepository: QuizSessionRepository,
-    private val quizProperties: QuizProperties,
-) {
+    private val userRepository: UserRepository,
+    private val quizSettings: QuizSettings,
+) : QuizUseCase {
 
-    fun startSession(user: User, mode: QuizMode): SessionResponse {
+    override fun startSession(userId: Long, mode: QuizMode): SessionResponse {
+        val user = userRepository.findById(userId)
+            ?: throw UnauthorizedException("Invalid or expired token")
         val quotes = quoteRepository.findAll()
         val authors = quotes.map { it.author }.distinct()
-        if (quotes.size < quizProperties.questionsPerSession || authors.size < quizProperties.multipleChoiceOptions) {
+        if (quotes.size < quizSettings.questionsPerSession || authors.size < quizSettings.multipleChoiceOptions) {
             throw BadRequestException("Not enough quotes available to start a quiz session")
         }
 
         val session = QuizSession(user = user, mode = mode)
-        quotes.shuffled().take(quizProperties.questionsPerSession).forEachIndexed { index, quote ->
+        quotes.shuffled().take(quizSettings.questionsPerSession).forEachIndexed { index, quote ->
             session.questions += buildQuestion(session, quote, index + 1, authors)
         }
         return SessionResponse.from(quizSessionRepository.save(session))
     }
 
-    fun answer(user: User, sessionId: String, answer: String): AnswerResponse {
-        val session = findSession(user, sessionId)
+    override fun answer(userId: Long, sessionId: String, answer: String): AnswerResponse {
+        val session = findSession(userId, sessionId)
         val question = session.currentQuestion()
             ?: throw BadRequestException("The quiz session is already completed")
 
@@ -72,8 +77,8 @@ class QuizService(
         )
     }
 
-    private fun findSession(user: User, sessionId: String): QuizSession =
-        quizSessionRepository.findByIdAndUserId(sessionId, requireNotNull(user.id))
+    private fun findSession(userId: Long, sessionId: String): QuizSession =
+        quizSessionRepository.findByIdAndUserId(sessionId, userId)
             ?: throw NotFoundException("Quiz session not found")
 
     private fun buildQuestion(
@@ -93,7 +98,7 @@ class QuizService(
             )
 
             QuizMode.MULTIPLE_CHOICE -> {
-                val distractors = otherAuthors.shuffled().take(quizProperties.multipleChoiceOptions - 1)
+                val distractors = otherAuthors.shuffled().take(quizSettings.multipleChoiceOptions - 1)
                 QuizQuestion(
                     session = session,
                     quote = quote,

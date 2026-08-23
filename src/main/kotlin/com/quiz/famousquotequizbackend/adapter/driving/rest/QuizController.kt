@@ -5,8 +5,7 @@ import com.quiz.famousquotequizbackend.adapter.driving.rest.dto.StartSessionRequ
 import com.quiz.famousquotequizbackend.adapter.driving.rest.security.CurrentUser
 import com.quiz.famousquotequizbackend.application.dto.quiz.AnswerResponse
 import com.quiz.famousquotequizbackend.application.dto.quiz.SessionResponse
-import com.quiz.famousquotequizbackend.application.service.QuizService
-import com.quiz.famousquotequizbackend.domain.user.User
+import com.quiz.famousquotequizbackend.application.port.driving.QuizUseCase
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -21,19 +20,19 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/quiz/sessions")
 @Tag(name = "Quiz")
-class QuizController(private val quizService: QuizService) {
+class QuizController(private val quizUseCase: QuizUseCase) {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Start a session of 10 questions in the given mode")
-    fun start(@CurrentUser user: User, @RequestBody request: StartSessionRequest): SessionResponse =
-        quizService.startSession(user, request.mode)
+    fun start(@CurrentUser userId: Long, @RequestBody request: StartSessionRequest): SessionResponse =
+        quizUseCase.startSession(userId, request.mode)
 
     @PostMapping("/{sessionId}/answers")
     @Operation(summary = "Answer the current question and get the correct author back")
     fun answer(
-        @CurrentUser user: User,
+        @CurrentUser userId: Long,
         @PathVariable sessionId: String,
         @Valid @RequestBody request: AnswerRequest,
-    ): AnswerResponse = quizService.answer(user, sessionId, request.answer)
+    ): AnswerResponse = quizUseCase.answer(userId, sessionId, request.answer)
 }

@@ -1,9 +1,9 @@
 package com.quiz.famousquotequizbackend.adapter.driving.rest
 
+import com.quiz.famousquotequizbackend.adapter.driving.rest.dto.LoginRequest
 import com.quiz.famousquotequizbackend.adapter.driving.rest.dto.RefreshRequest
 import com.quiz.famousquotequizbackend.application.dto.auth.AuthResponse
-import com.quiz.famousquotequizbackend.application.dto.auth.LoginRequest
-import com.quiz.famousquotequizbackend.application.service.AuthService
+import com.quiz.famousquotequizbackend.application.port.driving.AuthUseCase
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.validation.Valid
@@ -17,19 +17,20 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/auth")
 @Tag(name = "Authentication")
-class AuthController(private val authService: AuthService) {
+class AuthController(private val authUseCase: AuthUseCase) {
 
     @PostMapping("/login")
     @Operation(summary = "Exchange email and password for a JWT")
-    fun login(@Valid @RequestBody request: LoginRequest): AuthResponse = authService.login(request)
+    fun login(@Valid @RequestBody request: LoginRequest): AuthResponse =
+        authUseCase.login(request.email, request.password)
 
     @PostMapping("/refresh")
     @Operation(summary = "Exchange a refresh token for a new access token")
     fun refresh(@Valid @RequestBody request: RefreshRequest): AuthResponse =
-        authService.refresh(request.refreshToken)
+        authUseCase.refresh(request.refreshToken)
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Revoke a refresh token")
-    fun logout(@Valid @RequestBody request: RefreshRequest) = authService.logout(request.refreshToken)
+    fun logout(@Valid @RequestBody request: RefreshRequest) = authUseCase.logout(request.refreshToken)
 }
